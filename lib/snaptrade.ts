@@ -74,3 +74,19 @@ export async function listSnapTradeAccounts(
 
   return response.data;
 }
+
+export async function listSnapTradePositions(
+  snaptradeUserId: string,
+  userSecret: string,
+  accountId: string
+) {
+  const snaptrade = getSnapTradeClient();
+
+  const response = await snaptrade.accountInformation.getUserAccountPositions({
+    userId: snaptradeUserId,
+    userSecret,
+    accountId,
+  });
+
+  return response.data;
+}

@@ -10,6 +10,7 @@ import PortfolioIntelligencePanel from "@/components/terminal/PortfolioIntellige
 import WatchlistsPanel from "@/components/terminal/WatchlistsPanel";
 import BrokerageLinkPanel from "@/components/terminal/BrokerageLinkPanel";
 import BrokerageAccountsPanel from "@/components/terminal/BrokerageAccountsPanel";
+import BrokeragePositionsPanel from "@/components/terminal/BrokeragePositionsPanel";
 import {
   getRecentSignalHistory,
   getSignalPerformanceStats,
@@ -57,6 +58,8 @@ export default async function TerminalPage() {
           <BrokerageLinkPanel />
 
           <BrokerageAccountsPanel />
+
+          <BrokeragePositionsPanel />
 
           <PortfolioPanel />
 
