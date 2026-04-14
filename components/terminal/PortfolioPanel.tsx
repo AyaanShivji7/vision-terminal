@@ -9,6 +9,7 @@ type Holding = {
   buyPrice: number;
   currentPrice: number;
 };
+type PortfolioSource = "brokerage" | "manual";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -22,11 +23,16 @@ function formatPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function PortfolioPanel() {
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
   const [buyPrice, setBuyPrice] = useState("");
   const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [source, setSource] = useState<PortfolioSource>("manual");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,8 +50,9 @@ export default function PortfolioPanel() {
       }
 
       setHoldings(data.holdings || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load portfolio.");
+      setSource(data.source === "brokerage" ? "brokerage" : "manual");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to load portfolio."));
     } finally {
       setLoading(false);
     }
@@ -79,6 +86,13 @@ export default function PortfolioPanel() {
   }, [holdings]);
 
   async function addHolding() {
+    if (source === "brokerage") {
+      setError(
+        "Manual add is disabled while linked brokerage holdings are active."
+      );
+      return;
+    }
+
     const cleanedTicker = ticker.trim().toUpperCase();
     const parsedShares = Number(shares);
     const parsedBuyPrice = Number(buyPrice);
@@ -124,14 +138,21 @@ export default function PortfolioPanel() {
       setTicker("");
       setShares("");
       setBuyPrice("");
-    } catch (err: any) {
-      setError(err.message || "Failed to save holding.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to save holding."));
     } finally {
       setSaving(false);
     }
   }
 
   async function deleteHolding(id: string) {
+    if (source === "brokerage") {
+      setError(
+        "Manual delete is disabled while linked brokerage holdings are active."
+      );
+      return;
+    }
+
     try {
       setError("");
 
@@ -146,8 +167,8 @@ export default function PortfolioPanel() {
       }
 
       setHoldings((prev) => prev.filter((holding) => holding.id !== id));
-    } catch (err: any) {
-      setError(err.message || "Failed to delete holding.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to delete holding."));
     }
   }
 
@@ -164,49 +185,60 @@ export default function PortfolioPanel() {
         </div>
 
         <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">
-          Live Prices
+          {source === "brokerage"
+            ? "Source: Linked Brokerage Holdings"
+            : "Source: Manual Portfolio"}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <input
-          value={ticker}
-          onChange={(e) => setTicker(e.target.value)}
-          placeholder="Ticker"
-          className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
-        />
+      {source === "manual" ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
+          <input
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="Ticker"
+            className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
+          />
 
-        <input
-          value={shares}
-          onChange={(e) => setShares(e.target.value)}
-          placeholder="Shares"
-          type="number"
-          className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
-        />
+          <input
+            value={shares}
+            onChange={(e) => setShares(e.target.value)}
+            placeholder="Shares"
+            type="number"
+            className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
+          />
 
-        <input
-          value={buyPrice}
-          onChange={(e) => setBuyPrice(e.target.value)}
-          placeholder="Buy Price"
-          type="number"
-          step="0.01"
-          className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
-        />
+          <input
+            value={buyPrice}
+            onChange={(e) => setBuyPrice(e.target.value)}
+            placeholder="Buy Price"
+            type="number"
+            step="0.01"
+            className="rounded-xl border border-white/10 bg-black px-4 py-3 text-white outline-none placeholder:text-zinc-500"
+          />
 
-        <button
-          onClick={addHolding}
-          disabled={saving}
-          className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Add Holding"}
-        </button>
-      </div>
+          <button
+            onClick={addHolding}
+            disabled={saving}
+            className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:bg-zinc-200 disabled:opacity-60"
+          >
+            {saving ? "Saving..." : "Add Holding"}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-300">
+          Linked brokerage holdings are active. Manual add/delete controls are
+          hidden until no usable brokerage positions are synced.
+        </div>
+      )}
 
       {error ? (
         <p className="mt-3 text-sm text-red-400">{error}</p>
       ) : (
         <p className="mt-3 text-sm text-zinc-500">
-          Holdings now use live Finnhub pricing when saved and when the portfolio reloads.
+          {source === "brokerage"
+            ? "Displaying imported linked brokerage holdings."
+            : "Holdings use live Finnhub pricing when saved and when the portfolio reloads."}
         </p>
       )}
 
@@ -313,12 +345,16 @@ export default function PortfolioPanel() {
                     </div>
 
                     <div className="md:pl-4">
-                      <button
-                        onClick={() => deleteHolding(holding.id)}
-                        className="rounded-xl border border-white/10 px-4 py-2 text-white transition hover:bg-white hover:text-black"
-                      >
-                        Delete
-                      </button>
+                      {source === "manual" ? (
+                        <button
+                          onClick={() => deleteHolding(holding.id)}
+                          className="rounded-xl border border-white/10 px-4 py-2 text-white transition hover:bg-white hover:text-black"
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <span className="text-xs text-zinc-500">Imported</span>
+                      )}
                     </div>
                   </div>
                 </div>

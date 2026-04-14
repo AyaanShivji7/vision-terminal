@@ -1,5 +1,21 @@
+import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
-import { analyzePortfolio } from "@/lib/portfolioIntelligence";
+import { getUserBrokeragePositions } from "@/lib/brokeragePositions";
+import {
+  getActivePortfolioSource,
+  mapBrokeragePositionsToPortfolioHoldings,
+} from "@/lib/portfolioSource";
+import {
+  analyzePortfolio,
+} from "@/lib/portfolioIntelligence";
+
+type ManualHoldingRow = {
+  id: string;
+  ticker: string;
+  shares: string | number;
+  buy_price: string | number;
+  current_price: string | number;
+};
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -10,18 +26,64 @@ function formatCurrency(value: number) {
 }
 
 export default async function PortfolioIntelligencePanel() {
-  const rows = await sql`
-    SELECT ticker, shares, buy_price, current_price
+  const { userId } = await auth();
+
+  if (!userId) {
+    return (
+      <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
+              Portfolio Intelligence
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-white">
+              Exposure, Risk, and Rebalancing Insights
+            </h2>
+          </div>
+
+          <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">
+            Advisor Layer
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-400">
+          Sign in to view portfolio intelligence.
+        </div>
+      </section>
+    );
+  }
+
+  const brokeragePositions = await getUserBrokeragePositions(userId);
+  const brokerageHoldings = mapBrokeragePositionsToPortfolioHoldings(
+    brokeragePositions
+  );
+
+  const manualRows = await sql`
+    SELECT id, ticker, shares, buy_price, current_price
     FROM portfolio_holdings
+    WHERE clerk_user_id = ${userId}
     ORDER BY created_at DESC
   `;
 
-  const holdings = rows.map((row: any) => ({
+  const manualHoldings = (manualRows as ManualHoldingRow[]).map((row) => ({
+    id: row.id,
     ticker: row.ticker,
     shares: Number(row.shares),
     buyPrice: Number(row.buy_price),
     currentPrice: Number(row.current_price),
   }));
+
+  // Branch source selection here:
+  // Prefer imported brokerage holdings when at least one position has usable quantity/price/value data.
+  // Fall back to manually tracked holdings when brokerage data is unavailable or unusable.
+  const { source, holdings } = getActivePortfolioSource(
+    brokerageHoldings,
+    manualHoldings
+  );
+  const sourceLabel =
+    source === "brokerage"
+      ? "Source: Linked Brokerage Holdings"
+      : "Source: Manual Portfolio";
 
   const intelligence = analyzePortfolio(holdings);
 
@@ -38,13 +100,15 @@ export default async function PortfolioIntelligencePanel() {
         </div>
 
         <div className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-400">
-          Advisor Layer
+          {sourceLabel}
         </div>
       </div>
 
       {holdings.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-black/40 p-5 text-zinc-400">
-          Add portfolio holdings to unlock portfolio intelligence.
+          {source === "brokerage"
+            ? "No usable linked brokerage holdings found yet."
+            : "Add portfolio holdings to unlock portfolio intelligence."}
         </div>
       ) : (
         <div className="space-y-6">
