@@ -1,21 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { sql } from "@/lib/db";
-import { getUserBrokeragePositions } from "@/lib/brokeragePositions";
-import {
-  getActivePortfolioSource,
-  mapBrokeragePositionsToPortfolioHoldings,
-} from "@/lib/portfolioSource";
-import {
-  analyzePortfolio,
-} from "@/lib/portfolioIntelligence";
-
-type ManualHoldingRow = {
-  id: string;
-  ticker: string;
-  shares: string | number;
-  buy_price: string | number;
-  current_price: string | number;
-};
+import { getActivePortfolioSnapshot } from "@/lib/portfolioContext";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -53,39 +37,12 @@ export default async function PortfolioIntelligencePanel() {
     );
   }
 
-  const brokeragePositions = await getUserBrokeragePositions(userId);
-  const brokerageHoldings = mapBrokeragePositionsToPortfolioHoldings(
-    brokeragePositions
-  );
-
-  const manualRows = await sql`
-    SELECT id, ticker, shares, buy_price, current_price
-    FROM portfolio_holdings
-    WHERE clerk_user_id = ${userId}
-    ORDER BY created_at DESC
-  `;
-
-  const manualHoldings = (manualRows as ManualHoldingRow[]).map((row) => ({
-    id: row.id,
-    ticker: row.ticker,
-    shares: Number(row.shares),
-    buyPrice: Number(row.buy_price),
-    currentPrice: Number(row.current_price),
-  }));
-
-  // Branch source selection here:
-  // Prefer imported brokerage holdings when at least one position has usable quantity/price/value data.
-  // Fall back to manually tracked holdings when brokerage data is unavailable or unusable.
-  const { source, holdings } = getActivePortfolioSource(
-    brokerageHoldings,
-    manualHoldings
-  );
+  const snapshot = await getActivePortfolioSnapshot(userId);
+  const { source, holdings, intelligence } = snapshot;
   const sourceLabel =
     source === "brokerage"
       ? "Source: Linked Brokerage Holdings"
       : "Source: Manual Portfolio";
-
-  const intelligence = analyzePortfolio(holdings);
 
   return (
     <section className="rounded-3xl border border-white/10 bg-white/5 p-5">
