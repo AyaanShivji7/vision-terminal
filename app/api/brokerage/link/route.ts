@@ -59,19 +59,26 @@ export async function POST() {
       snaptradeUserSecret
     );
 
+    const loginDataRecord = loginData as Record<string, unknown>;
+    const redirectUriCandidate =
+      loginDataRecord.redirectURI ??
+      loginDataRecord.redirectUri ??
+      loginDataRecord.url;
     const redirectUri =
-      loginData.redirectURI || loginData.redirectUri || loginData.url;
+      typeof redirectUriCandidate === "string" ? redirectUriCandidate : "";
 
     if (!redirectUri) {
       throw new Error("SnapTrade did not return a redirect URI.");
     }
 
     return NextResponse.json({ redirectUri });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/brokerage/link error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to create brokerage link.";
 
     return NextResponse.json(
-      { error: error?.message || "Failed to create brokerage link." },
+      { error: message },
       { status: 500 }
     );
   }
