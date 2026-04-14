@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+import { getUserBrokeragePositions } from "@/lib/brokeragePositions";
+import {
+  getActivePortfolioSource,
+  mapBrokeragePositionsToPortfolioHoldings,
+} from "@/lib/portfolioSource";
+
+type PortfolioHoldingRow = {
+  id: string;
+  ticker: string;
+  shares: string | number;
+  buy_price: string | number;
+  current_price: string | number;
+  created_at: string;
+};
 
 async function fetchLivePrice(ticker: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
@@ -42,8 +56,8 @@ export async function GET() {
       ORDER BY created_at DESC
     `;
 
-    const refreshedHoldings = await Promise.all(
-      rows.map(async (row: any) => {
+    const refreshedManualHoldings = await Promise.all(
+      (rows as PortfolioHoldingRow[]).map(async (row) => {
         let currentPrice = Number(row.current_price);
 
         try {
@@ -70,7 +84,22 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ holdings: refreshedHoldings });
+    const brokeragePositions = await getUserBrokeragePositions(userId);
+    const brokerageHoldings =
+      mapBrokeragePositionsToPortfolioHoldings(brokeragePositions);
+
+    // Branch source selection here:
+    // Prefer imported brokerage holdings when positions have usable quantity/price/value data.
+    // Fall back to manual holdings when linked brokerage data is unavailable or unusable.
+    const { source, holdings } = getActivePortfolioSource(
+      brokerageHoldings,
+      refreshedManualHoldings
+    );
+
+    return NextResponse.json({
+      source,
+      holdings,
+    });
   } catch (error) {
     console.error("GET /api/portfolio error:", error);
     return NextResponse.json(
@@ -142,11 +171,13 @@ export async function POST(req: Request) {
         currentPrice,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("POST /api/portfolio error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to save holding.";
 
     return NextResponse.json(
-      { error: error?.message || "Failed to save holding." },
+      { error: message },
       { status: 500 }
     );
   }
