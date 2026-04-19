@@ -26,6 +26,10 @@ const FINNHUB_BASE = "https://finnhub.io/api/v1";
 // still feels live without hammering the API on every render.
 const QUOTE_REVALIDATE_SECONDS = 60;
 const NEWS_REVALIDATE_SECONDS = 300;
+const CANDLE_REVALIDATE_SECONDS = 300;
+const SEARCH_REVALIDATE_SECONDS = 3600;
+
+export type Resolution = "1" | "5" | "15" | "30" | "60" | "D" | "W" | "M";
 
 export type Quote = {
   symbol: string;
@@ -44,6 +48,21 @@ export type FinnhubNewsItem = {
   url: string;
   source: string;
   datetime: number;
+};
+
+export type Candle = {
+  timestamp: number; // seconds since epoch
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+};
+
+export type SymbolMatch = {
+  symbol: string;
+  description: string;
+  type: string;
 };
 
 function getApiKey(): string | null {
@@ -174,6 +193,131 @@ export async function getNews(): Promise<FinnhubNewsItem[]> {
       }));
     } catch (error) {
       console.error("Finnhub news fetch threw:", error);
+      return [];
+    }
+  });
+}
+
+/**
+ * Fetch OHLC candles for a symbol. Returns `[]` on failure or when the
+ * upstream reports `no_data`. Note: Finnhub may restrict the candles
+ * endpoint on the free tier; callers should degrade gracefully when the
+ * array is empty.
+ */
+export async function getCandles(
+  symbol: string,
+  resolution: Resolution,
+  fromSeconds: number,
+  toSeconds: number
+): Promise<Candle[]> {
+  const ticker = symbol.trim().toUpperCase();
+
+  if (!ticker || !Number.isFinite(fromSeconds) || !Number.isFinite(toSeconds)) {
+    return [];
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn("getCandles called but FINNHUB_API_KEY is not set");
+    return [];
+  }
+
+  const from = Math.floor(fromSeconds);
+  const to = Math.floor(toSeconds);
+  const cacheKey = `finnhub:candles:${ticker}:${resolution}:${from}:${to}`;
+
+  return dedupe(cacheKey, async () => {
+    try {
+      const url = `${FINNHUB_BASE}/stock/candle?symbol=${encodeURIComponent(
+        ticker
+      )}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+
+      const response = await fetch(url, {
+        next: { revalidate: CANDLE_REVALIDATE_SECONDS },
+      });
+
+      if (!response.ok) {
+        console.error(
+          `Finnhub candles request failed for ${ticker}: ${response.status}`
+        );
+        return [];
+      }
+
+      const data = await response.json();
+
+      if (!data || data.s !== "ok" || !Array.isArray(data.t)) {
+        return [];
+      }
+
+      const length: number = data.t.length;
+      const candles: Candle[] = [];
+
+      for (let i = 0; i < length; i++) {
+        candles.push({
+          timestamp: Number(data.t[i]),
+          open: Number(data.o[i]),
+          high: Number(data.h[i]),
+          low: Number(data.l[i]),
+          close: Number(data.c[i]),
+          volume: Number(data.v[i] ?? 0),
+        });
+      }
+
+      return candles;
+    } catch (error) {
+      console.error(`Finnhub candles fetch threw for ${ticker}:`, error);
+      return [];
+    }
+  });
+}
+
+/**
+ * Finnhub symbol search. Returns `[]` on failure.
+ */
+export async function searchSymbols(query: string): Promise<SymbolMatch[]> {
+  const q = query.trim();
+
+  if (q.length < 1) {
+    return [];
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return [];
+  }
+
+  const cacheKey = `finnhub:search:${q.toLowerCase()}`;
+
+  return dedupe(cacheKey, async () => {
+    try {
+      const url = `${FINNHUB_BASE}/search?q=${encodeURIComponent(
+        q
+      )}&token=${apiKey}`;
+
+      const response = await fetch(url, {
+        next: { revalidate: SEARCH_REVALIDATE_SECONDS },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+
+      if (!data || !Array.isArray(data.result)) {
+        return [];
+      }
+
+      return data.result
+        .slice(0, 10)
+        .map((item: any): SymbolMatch => ({
+          symbol: String(item.symbol ?? "").toUpperCase(),
+          description: String(item.description ?? ""),
+          type: String(item.type ?? ""),
+        }))
+        .filter((item: SymbolMatch) => item.symbol.length > 0);
+    } catch (error) {
+      console.error("Finnhub search fetch threw:", error);
       return [];
     }
   });
