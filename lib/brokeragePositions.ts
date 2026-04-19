@@ -31,12 +31,12 @@ export async function getUserBrokeragePositions(clerkUserId: string) {
     ORDER BY created_at DESC
   `;
 
-  return rows.map((row: any) => ({
-    id: row.id,
-    brokerageAccountId: row.brokerage_account_id ?? null,
-    snaptradeAccountId: row.snaptrade_account_id,
-    symbol: row.symbol ?? null,
-    description: row.description ?? null,
+  return rows.map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    brokerageAccountId: (row.brokerage_account_id as string | null) ?? null,
+    snaptradeAccountId: row.snaptrade_account_id as string,
+    symbol: (row.symbol as string | null) ?? null,
+    description: (row.description as string | null) ?? null,
     quantity: row.quantity === null ? null : Number(row.quantity),
     marketValue: row.market_value === null ? null : Number(row.market_value),
     averagePurchasePrice:

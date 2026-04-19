@@ -37,10 +37,11 @@ export async function GET() {
     `;
 
     const refreshedHoldings = await Promise.all(
-      rows.map(async (row: any) => {
+      rows.map(async (row: Record<string, unknown>) => {
         let currentPrice = Number(row.current_price);
+        const ticker = String(row.ticker);
 
-        const quote = await getQuote(row.ticker);
+        const quote = await getQuote(ticker);
 
         if (quote) {
           currentPrice = quote.currentPrice;
@@ -53,19 +54,19 @@ export async function GET() {
             `;
           } catch (error) {
             console.error(
-              `Failed to persist refreshed price for ${row.ticker}:`,
+              `Failed to persist refreshed price for ${ticker}:`,
               error
             );
           }
         }
 
         return {
-          id: row.id,
-          ticker: row.ticker,
+          id: row.id as string,
+          ticker,
           shares: Number(row.shares),
           buyPrice: Number(row.buy_price),
           currentPrice,
-          createdAt: row.created_at,
+          createdAt: row.created_at as string,
         };
       })
     );

@@ -24,8 +24,8 @@ export default async function PortfolioIntelligencePanel() {
     ORDER BY created_at DESC
   `;
 
-  const holdings = rows.map((row: any) => ({
-    ticker: row.ticker,
+  const holdings = rows.map((row: Record<string, unknown>) => ({
+    ticker: String(row.ticker),
     shares: Number(row.shares),
     buyPrice: Number(row.buy_price),
     currentPrice: Number(row.current_price),

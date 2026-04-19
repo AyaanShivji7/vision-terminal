@@ -75,8 +75,10 @@ export default function PerformancePanel({
       }
 
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Failed to refresh signals.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to refresh signals.";
+      setError(message);
     } finally {
       setRefreshing(false);
     }

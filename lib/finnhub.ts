@@ -184,13 +184,16 @@ export async function getNews(): Promise<FinnhubNewsItem[]> {
         return [];
       }
 
-      return data.map((item: any, index: number) => ({
-        id: item.id ?? index,
-        headline: String(item.headline ?? "Untitled article"),
-        url: String(item.url ?? "#"),
-        source: String(item.source ?? "Unknown"),
-        datetime: Number(item.datetime ?? 0),
-      }));
+      return data.map((raw: unknown, index: number) => {
+        const item = (raw ?? {}) as Record<string, unknown>;
+        return {
+          id: (item.id as number | string | undefined) ?? index,
+          headline: String(item.headline ?? "Untitled article"),
+          url: String(item.url ?? "#"),
+          source: String(item.source ?? "Unknown"),
+          datetime: Number(item.datetime ?? 0),
+        };
+      });
     } catch (error) {
       console.error("Finnhub news fetch threw:", error);
       return [];
@@ -308,13 +311,16 @@ export async function searchSymbols(query: string): Promise<SymbolMatch[]> {
         return [];
       }
 
-      return data.result
+      return (data.result as unknown[])
         .slice(0, 10)
-        .map((item: any): SymbolMatch => ({
-          symbol: String(item.symbol ?? "").toUpperCase(),
-          description: String(item.description ?? ""),
-          type: String(item.type ?? ""),
-        }))
+        .map((raw: unknown): SymbolMatch => {
+          const item = (raw ?? {}) as Record<string, unknown>;
+          return {
+            symbol: String(item.symbol ?? "").toUpperCase(),
+            description: String(item.description ?? ""),
+            type: String(item.type ?? ""),
+          };
+        })
         .filter((item: SymbolMatch) => item.symbol.length > 0);
     } catch (error) {
       console.error("Finnhub search fetch threw:", error);

@@ -26,8 +26,10 @@ export default function BrokerageLinkPanel() {
       }
 
       window.location.href = data.redirectUri;
-    } catch (err: any) {
-      setError(err.message || "Failed to link brokerage.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to link brokerage.";
+      setError(message);
     } finally {
       setLoading(false);
     }
