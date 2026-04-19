@@ -44,8 +44,12 @@ export default function BrokeragePositionsPanel() {
       }
 
       setPositions(data.positions || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load brokerage positions.");
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to load brokerage positions.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -67,8 +71,12 @@ export default function BrokeragePositionsPanel() {
       }
 
       await loadPositions();
-    } catch (err: any) {
-      setError(err.message || "Failed to sync brokerage positions.");
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to sync brokerage positions.";
+      setError(message);
     } finally {
       setSyncing(false);
     }

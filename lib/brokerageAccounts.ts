@@ -33,12 +33,12 @@ export async function getUserBrokerageConnections(clerkUserId: string) {
     ORDER BY created_at DESC
   `;
 
-  return rows.map((row: any) => ({
-    id: row.id,
-    authorizationId: row.snaptrade_authorization_id,
-    brokerageName: row.brokerage_name ?? null,
-    brokerageSlug: row.brokerage_slug ?? null,
-    connectionStatus: row.connection_status ?? null,
+  return rows.map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    authorizationId: row.snaptrade_authorization_id as string,
+    brokerageName: (row.brokerage_name as string | null) ?? null,
+    brokerageSlug: (row.brokerage_slug as string | null) ?? null,
+    connectionStatus: (row.connection_status as string | null) ?? null,
     disabled: Boolean(row.disabled),
   })) as BrokerageConnection[];
 }
@@ -58,13 +58,14 @@ export async function getUserBrokerageAccounts(clerkUserId: string) {
     ORDER BY created_at DESC
   `;
 
-  return rows.map((row: any) => ({
-    id: row.id,
-    brokerageConnectionId: row.brokerage_connection_id ?? null,
-    snaptradeAccountId: row.snaptrade_account_id,
-    accountName: row.account_name ?? null,
-    accountNumber: row.account_number ?? null,
-    accountType: row.account_type ?? null,
+  return rows.map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    brokerageConnectionId:
+      (row.brokerage_connection_id as string | null) ?? null,
+    snaptradeAccountId: row.snaptrade_account_id as string,
+    accountName: (row.account_name as string | null) ?? null,
+    accountNumber: (row.account_number as string | null) ?? null,
+    accountType: (row.account_type as string | null) ?? null,
     lastSyncedAt: row.last_synced_at ? String(row.last_synced_at) : null,
   })) as BrokerageAccount[];
 }

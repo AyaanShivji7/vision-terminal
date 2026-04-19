@@ -42,8 +42,10 @@ export default function BrokerageAccountsPanel() {
 
       setConnections(data.connections || []);
       setAccounts(data.accounts || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load brokerage data.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load brokerage data.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -65,8 +67,12 @@ export default function BrokerageAccountsPanel() {
       }
 
       await loadLocalData();
-    } catch (err: any) {
-      setError(err.message || "Failed to sync brokerage accounts.");
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to sync brokerage accounts.";
+      setError(message);
     } finally {
       setSyncing(false);
     }

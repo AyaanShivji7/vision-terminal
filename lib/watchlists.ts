@@ -34,7 +34,8 @@ export async function getUserWatchlists(clerkUserId: string): Promise<Watchlist[
 
   const result: Watchlist[] = [];
 
-  for (const watchlist of watchlists) {
+  for (const raw of watchlists) {
+    const watchlist = raw as { id: string; name: string };
     const items = await sql`
       SELECT id, ticker
       FROM watchlist_items
@@ -43,15 +44,16 @@ export async function getUserWatchlists(clerkUserId: string): Promise<Watchlist[
     `;
 
     const enrichedItems = await Promise.all(
-      items.map(async (item: any) => {
-        const quote = await getQuote(item.ticker);
+      items.map(async (item: Record<string, unknown>) => {
+        const ticker = String(item.ticker);
+        const quote = await getQuote(ticker);
 
         const currentPrice = quote ? quote.currentPrice : null;
         const percentChange = quote ? quote.percentChange : null;
 
         return {
-          id: item.id,
-          ticker: item.ticker,
+          id: item.id as string,
+          ticker,
           currentPrice,
           percentChange,
           signalLabel: getSignalLabel(percentChange),

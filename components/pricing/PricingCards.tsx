@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function PricingCards() {
     return (
       <section className="bg-black">
@@ -62,12 +64,12 @@ export default function PricingCards() {
                 </div>
               </div>
   
-              <a
+              <Link
                 href="/sign-in"
                 className="mt-10 inline-flex rounded-full bg-white px-6 py-3 font-semibold text-black transition hover:bg-zinc-200"
               >
                 Get Basic Premium
-              </a>
+              </Link>
             </div>
   
             <div className="rounded-3xl border border-white bg-white p-8 text-black">
@@ -115,12 +117,12 @@ export default function PricingCards() {
                 </div>
               </div>
   
-              <a
+              <Link
                 href="/sign-in"
                 className="mt-10 inline-flex rounded-full bg-black px-6 py-3 font-semibold text-white transition hover:bg-zinc-800"
               >
                 Get Day-Trader Pro
-              </a>
+              </Link>
             </div>
           </div>
   

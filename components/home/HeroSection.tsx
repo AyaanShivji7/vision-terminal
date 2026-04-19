@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function HeroSection() {
     return (
       <section className="border-b border-white/10 bg-black">
@@ -21,19 +23,19 @@ export default function HeroSection() {
             </p>
   
             <div className="mt-8 flex flex-wrap gap-4">
-              <a
+              <Link
                 href="/pricing"
                 className="rounded-full bg-white px-6 py-3 font-semibold text-black transition hover:bg-zinc-200"
               >
                 View Plans
-              </a>
+              </Link>
   
-              <a
+              <Link
                 href="/sign-in"
                 className="rounded-full border border-white/15 px-6 py-3 font-semibold text-white transition hover:bg-white/5"
               >
                 Enter Terminal
-              </a>
+              </Link>
             </div>
   
             <div className="mt-10 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">

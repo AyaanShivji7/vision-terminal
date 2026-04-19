@@ -29,19 +29,24 @@ export async function getSignalPerformanceStats(): Promise<SignalPerformanceStat
     FROM daily_top_picks
   `;
 
-  const totalSignals = rows.length;
-  const openSignals = rows.filter((row: any) => row.outcome === "open").length;
-  const wins = rows.filter((row: any) => row.outcome === "win").length;
-  const losses = rows.filter((row: any) => row.outcome === "loss").length;
+  type PerfRow = Record<string, unknown>;
+  const typedRows = rows as PerfRow[];
 
-  const closedRows = rows.filter(
-    (row: any) => row.return_percent !== null && row.outcome !== "open"
+  const totalSignals = typedRows.length;
+  const openSignals = typedRows.filter(
+    (row) => row.outcome === "open"
+  ).length;
+  const wins = typedRows.filter((row) => row.outcome === "win").length;
+  const losses = typedRows.filter((row) => row.outcome === "loss").length;
+
+  const closedRows = typedRows.filter(
+    (row) => row.return_percent !== null && row.outcome !== "open"
   );
 
   const averageReturn =
     closedRows.length > 0
       ? closedRows.reduce(
-          (sum: number, row: any) => sum + Number(row.return_percent),
+          (sum: number, row) => sum + Number(row.return_percent),
           0
         ) / closedRows.length
       : 0;
@@ -78,16 +83,16 @@ export async function getRecentSignalHistory(limit = 20): Promise<SignalHistoryI
     LIMIT ${limit}
   `;
 
-  return rows.map((row: any) => ({
-    id: row.id,
+  return rows.map((row: Record<string, unknown>) => ({
+    id: row.id as string,
     pickDate: String(row.pick_date),
-    ticker: row.ticker,
+    ticker: row.ticker as string,
     rank: Number(row.rank),
     confidenceScore:
       row.confidence_score === null ? null : Number(row.confidence_score),
-    riskLevel: row.risk_level ?? null,
-    signalStatus: row.signal_status ?? null,
-    outcome: row.outcome ?? null,
+    riskLevel: (row.risk_level as string | null) ?? null,
+    signalStatus: (row.signal_status as string | null) ?? null,
+    outcome: (row.outcome as string | null) ?? null,
     entryPrice: row.entry_price === null ? null : Number(row.entry_price),
     currentPrice: row.current_price === null ? null : Number(row.current_price),
     returnPercent:

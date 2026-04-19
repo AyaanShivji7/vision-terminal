@@ -60,8 +60,10 @@ export default function WatchlistsPanel() {
       }
 
       setWatchlists(data.watchlists || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load watchlists.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load watchlists.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -99,8 +101,10 @@ export default function WatchlistsPanel() {
 
       setWatchlistName("");
       await loadWatchlists();
-    } catch (err: any) {
-      setError(err.message || "Failed to create watchlist.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create watchlist.";
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -137,8 +141,10 @@ export default function WatchlistsPanel() {
       }));
 
       await loadWatchlists();
-    } catch (err: any) {
-      setError(err.message || "Failed to add ticker.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to add ticker.";
+      setError(message);
     }
   }
 
@@ -157,8 +163,10 @@ export default function WatchlistsPanel() {
       }
 
       await loadWatchlists();
-    } catch (err: any) {
-      setError(err.message || "Failed to delete watchlist.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to delete watchlist.";
+      setError(message);
     }
   }
 
@@ -177,8 +185,12 @@ export default function WatchlistsPanel() {
       }
 
       await loadWatchlists();
-    } catch (err: any) {
-      setError(err.message || "Failed to delete watchlist item.");
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Failed to delete watchlist item.";
+      setError(message);
     }
   }
 

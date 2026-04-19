@@ -24,28 +24,28 @@ export type DailyTopPick = {
   closedAt: string | null;
 };
 
-function mapRow(row: any): DailyTopPick {
+function mapRow(row: Record<string, unknown>): DailyTopPick {
   return {
-    id: row.id,
+    id: row.id as string,
     pickDate: String(row.pick_date),
     rank: Number(row.rank),
-    ticker: row.ticker,
-    company: row.company,
-    shortReason: row.short_reason,
-    summary: row.summary,
-    buyZone: row.buy_zone,
-    takeProfit: row.take_profit,
-    stopLoss: row.stop_loss,
-    reasoning: row.reasoning,
+    ticker: row.ticker as string,
+    company: row.company as string,
+    shortReason: row.short_reason as string,
+    summary: row.summary as string,
+    buyZone: row.buy_zone as string,
+    takeProfit: row.take_profit as string,
+    stopLoss: row.stop_loss as string,
+    reasoning: row.reasoning as string,
     confidenceScore:
       row.confidence_score === null ? null : Number(row.confidence_score),
-    riskLevel: row.risk_level ?? null,
+    riskLevel: (row.risk_level as string | null) ?? null,
     entryPrice: row.entry_price === null ? null : Number(row.entry_price),
     currentPrice: row.current_price === null ? null : Number(row.current_price),
-    signalStatus: row.signal_status ?? null,
+    signalStatus: (row.signal_status as string | null) ?? null,
     returnPercent:
       row.return_percent === null ? null : Number(row.return_percent),
-    outcome: row.outcome ?? null,
+    outcome: (row.outcome as string | null) ?? null,
     createdAt: String(row.created_at),
     closedAt: row.closed_at ? String(row.closed_at) : null,
   };

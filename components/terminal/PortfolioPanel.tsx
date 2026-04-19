@@ -44,8 +44,10 @@ export default function PortfolioPanel() {
       }
 
       setHoldings(data.holdings || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load portfolio.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load portfolio.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -124,8 +126,10 @@ export default function PortfolioPanel() {
       setTicker("");
       setShares("");
       setBuyPrice("");
-    } catch (err: any) {
-      setError(err.message || "Failed to save holding.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to save holding.";
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -146,8 +150,10 @@ export default function PortfolioPanel() {
       }
 
       setHoldings((prev) => prev.filter((holding) => holding.id !== id));
-    } catch (err: any) {
-      setError(err.message || "Failed to delete holding.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to delete holding.";
+      setError(message);
     }
   }
 
