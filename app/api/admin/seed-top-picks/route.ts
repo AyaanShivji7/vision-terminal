@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { getEdmontonDateString } from "@/lib/date";
 import { seedTopPicks } from "@/data/seedTopPicks";
+import { parsePicksPricing } from "@/lib/pricing";
 
 async function seedTodaysPicks() {
   const today = getEdmontonDateString();
@@ -14,6 +15,12 @@ async function seedTodaysPicks() {
 
   for (let i = 0; i < seedTopPicks.length; i++) {
     const pick = seedTopPicks[i];
+
+    const pricing = parsePicksPricing({
+      buyZone: pick.buyZone,
+      takeProfit: pick.takeProfit,
+      stopLoss: pick.stopLoss,
+    });
 
     await sql`
       INSERT INTO daily_top_picks (
@@ -27,6 +34,11 @@ async function seedTodaysPicks() {
         buy_zone,
         take_profit,
         stop_loss,
+        buy_zone_low,
+        buy_zone_high,
+        take_profit_low,
+        take_profit_high,
+        stop_loss_value,
         reasoning
       )
       VALUES (
@@ -40,6 +52,11 @@ async function seedTodaysPicks() {
         ${pick.buyZone},
         ${pick.takeProfit},
         ${pick.stopLoss},
+        ${pricing.buyZoneLow},
+        ${pricing.buyZoneHigh},
+        ${pricing.takeProfitLow},
+        ${pricing.takeProfitHigh},
+        ${pricing.stopLoss},
         ${pick.reasoning}
       )
     `;

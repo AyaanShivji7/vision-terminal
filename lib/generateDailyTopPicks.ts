@@ -3,6 +3,7 @@ import { sql } from "@/lib/db";
 import { getEdmontonDateString } from "@/lib/date";
 import { buildMarketContextPrompt, getMarketContext } from "@/lib/marketContext";
 import { getQuote } from "@/lib/finnhub";
+import { decideSignal, parsePicksPricing } from "@/lib/pricing";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -87,38 +88,6 @@ function normalizePicks(raw: unknown): GeneratedPick[] {
 
     return normalized;
   });
-}
-
-function computeSignalStatus(
-  entryPrice: number,
-  currentPrice: number,
-  takeProfit: string,
-  stopLoss: string
-) {
-  const tpMatch = takeProfit.match(/-?\d+(\.\d+)?/);
-  const slMatch = stopLoss.match(/-?\d+(\.\d+)?/);
-
-  const tp = tpMatch ? Number(tpMatch[0]) : null;
-  const sl = slMatch ? Number(slMatch[0]) : null;
-
-  if (tp !== null && currentPrice >= tp) {
-    return {
-      signalStatus: "take_profit_hit",
-      outcome: "win",
-    };
-  }
-
-  if (sl !== null && currentPrice <= sl) {
-    return {
-      signalStatus: "stop_loss_hit",
-      outcome: "loss",
-    };
-  }
-
-  return {
-    signalStatus: "open",
-    outcome: "open",
-  };
 }
 
 export async function generateTopPicksWithOpenAI() {
@@ -219,11 +188,17 @@ export async function saveTodaysGeneratedPicks(picks: GeneratedPick[]) {
   for (let i = 0; i < picks.length; i++) {
     const pick = picks[i];
 
+    const pricing = parsePicksPricing({
+      buyZone: pick.buyZone,
+      takeProfit: pick.takeProfit,
+      stopLoss: pick.stopLoss,
+    });
+
     let entryPrice: number | null = null;
     let currentPrice: number | null = null;
-    let signalStatus = "monitoring";
-    let outcome = "open";
-    let returnPercent = 0;
+    let signalStatus: string = "monitoring";
+    let outcome: string = "open";
+    const returnPercent = 0;
 
     try {
       const quote = await getQuote(pick.ticker);
@@ -232,16 +207,13 @@ export async function saveTodaysGeneratedPicks(picks: GeneratedPick[]) {
         entryPrice = quote.currentPrice;
         currentPrice = quote.currentPrice;
 
-        const status = computeSignalStatus(
-          entryPrice,
-          currentPrice,
-          pick.takeProfit,
-          pick.stopLoss
-        );
+        const decision = decideSignal(currentPrice, {
+          takeProfitLow: pricing.takeProfitLow,
+          stopLoss: pricing.stopLoss,
+        });
 
-        signalStatus = status.signalStatus;
-        outcome = status.outcome;
-        returnPercent = 0;
+        signalStatus = decision.status;
+        outcome = decision.outcome;
       }
     } catch (error) {
       console.error(`Live price fetch failed for ${pick.ticker}:`, error);
@@ -259,6 +231,11 @@ export async function saveTodaysGeneratedPicks(picks: GeneratedPick[]) {
         buy_zone,
         take_profit,
         stop_loss,
+        buy_zone_low,
+        buy_zone_high,
+        take_profit_low,
+        take_profit_high,
+        stop_loss_value,
         reasoning,
         confidence_score,
         risk_level,
@@ -279,6 +256,11 @@ export async function saveTodaysGeneratedPicks(picks: GeneratedPick[]) {
         ${pick.buyZone},
         ${pick.takeProfit},
         ${pick.stopLoss},
+        ${pricing.buyZoneLow},
+        ${pricing.buyZoneHigh},
+        ${pricing.takeProfitLow},
+        ${pricing.takeProfitHigh},
+        ${pricing.stopLoss},
         ${pick.reasoning},
         ${pick.confidenceScore},
         ${pick.riskLevel},
