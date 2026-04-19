@@ -2,54 +2,14 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { getQuote } from "@/lib/finnhub";
+import { decideSignal, parsePicksPricing } from "@/lib/pricing";
 
-function computeSignalStatus(
+function computeReturnPercent(
   entryPrice: number | null,
-  currentPrice: number | null,
-  takeProfit: string,
-  stopLoss: string
-) {
-  if (entryPrice === null || currentPrice === null) {
-    return {
-      signalStatus: "monitoring",
-      outcome: "open",
-      returnPercent: 0,
-      closedAt: null as string | null,
-    };
-  }
-
-  const returnPercent = ((currentPrice - entryPrice) / entryPrice) * 100;
-
-  const tpMatch = takeProfit.match(/-?\d+(\.\d+)?/);
-  const slMatch = stopLoss.match(/-?\d+(\.\d+)?/);
-
-  const tp = tpMatch ? Number(tpMatch[0]) : null;
-  const sl = slMatch ? Number(slMatch[0]) : null;
-
-  if (tp !== null && currentPrice >= tp) {
-    return {
-      signalStatus: "take_profit_hit",
-      outcome: "win",
-      returnPercent,
-      closedAt: new Date().toISOString(),
-    };
-  }
-
-  if (sl !== null && currentPrice <= sl) {
-    return {
-      signalStatus: "stop_loss_hit",
-      outcome: "loss",
-      returnPercent,
-      closedAt: new Date().toISOString(),
-    };
-  }
-
-  return {
-    signalStatus: "open",
-    outcome: "open",
-    returnPercent,
-    closedAt: null as string | null,
-  };
+  currentPrice: number
+): number {
+  if (entryPrice === null || entryPrice <= 0) return 0;
+  return ((currentPrice - entryPrice) / entryPrice) * 100;
 }
 
 export async function POST() {
@@ -64,7 +24,16 @@ export async function POST() {
     }
 
     const rows = await sql`
-      SELECT id, ticker, entry_price, current_price, take_profit, stop_loss, signal_status
+      SELECT
+        id,
+        ticker,
+        entry_price,
+        current_price,
+        take_profit,
+        stop_loss,
+        take_profit_low,
+        stop_loss_value,
+        signal_status
       FROM daily_top_picks
       ORDER BY pick_date DESC, rank ASC
     `;
@@ -81,21 +50,41 @@ export async function POST() {
 
         const livePrice = quote.currentPrice;
 
-        const status = computeSignalStatus(
+        // Prefer the structured numeric columns. Fall back to parsing the
+        // text fields so rows inserted before migration 0003 still work.
+        let takeProfitLow: number | null =
+          row.take_profit_low === null ? null : Number(row.take_profit_low);
+        let stopLoss: number | null =
+          row.stop_loss_value === null ? null : Number(row.stop_loss_value);
+
+        if (takeProfitLow === null || stopLoss === null) {
+          const parsed = parsePicksPricing({
+            buyZone: null,
+            takeProfit: row.take_profit,
+            stopLoss: row.stop_loss,
+          });
+          if (takeProfitLow === null) takeProfitLow = parsed.takeProfitLow;
+          if (stopLoss === null) stopLoss = parsed.stopLoss;
+        }
+
+        const decision = decideSignal(livePrice, {
+          takeProfitLow,
+          stopLoss,
+        });
+
+        const returnPercent = computeReturnPercent(
           row.entry_price === null ? null : Number(row.entry_price),
-          livePrice,
-          row.take_profit,
-          row.stop_loss
+          livePrice
         );
 
         await sql`
           UPDATE daily_top_picks
           SET
             current_price = ${livePrice},
-            signal_status = ${status.signalStatus},
-            outcome = ${status.outcome},
-            return_percent = ${status.returnPercent},
-            closed_at = ${status.closedAt}
+            signal_status = ${decision.status},
+            outcome = ${decision.outcome},
+            return_percent = ${returnPercent},
+            closed_at = ${decision.closedAt}
           WHERE id = ${row.id}
         `;
 

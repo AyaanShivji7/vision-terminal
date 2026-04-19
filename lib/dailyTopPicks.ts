@@ -12,6 +12,13 @@ export type DailyTopPick = {
   buyZone: string;
   takeProfit: string;
   stopLoss: string;
+  // Structured numeric counterparts (nullable for rows created before
+  // the pricing parser migration 0003).
+  buyZoneLow: number | null;
+  buyZoneHigh: number | null;
+  takeProfitLow: number | null;
+  takeProfitHigh: number | null;
+  stopLossValue: number | null;
   reasoning: string;
   confidenceScore: number | null;
   riskLevel: string | null;
@@ -36,6 +43,26 @@ function mapRow(row: any): DailyTopPick {
     buyZone: row.buy_zone,
     takeProfit: row.take_profit,
     stopLoss: row.stop_loss,
+    buyZoneLow:
+      row.buy_zone_low === null || row.buy_zone_low === undefined
+        ? null
+        : Number(row.buy_zone_low),
+    buyZoneHigh:
+      row.buy_zone_high === null || row.buy_zone_high === undefined
+        ? null
+        : Number(row.buy_zone_high),
+    takeProfitLow:
+      row.take_profit_low === null || row.take_profit_low === undefined
+        ? null
+        : Number(row.take_profit_low),
+    takeProfitHigh:
+      row.take_profit_high === null || row.take_profit_high === undefined
+        ? null
+        : Number(row.take_profit_high),
+    stopLossValue:
+      row.stop_loss_value === null || row.stop_loss_value === undefined
+        ? null
+        : Number(row.stop_loss_value),
     reasoning: row.reasoning,
     confidenceScore:
       row.confidence_score === null ? null : Number(row.confidence_score),

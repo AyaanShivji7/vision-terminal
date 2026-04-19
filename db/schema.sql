@@ -71,6 +71,14 @@ CREATE TABLE IF NOT EXISTS daily_top_picks (
   buy_zone          text,
   take_profit       text,
   stop_loss         text,
+  -- Structured numeric counterparts (see lib/pricing.ts). Added in
+  -- migration 0003. Populated at insert/seed time; existing text fields
+  -- remain authoritative for display.
+  buy_zone_low      numeric(18, 4),
+  buy_zone_high     numeric(18, 4),
+  take_profit_low   numeric(18, 4),
+  take_profit_high  numeric(18, 4),
+  stop_loss_value   numeric(18, 4),
   reasoning         text,
   confidence_score  integer CHECK (confidence_score IS NULL OR confidence_score BETWEEN 1 AND 100),
   risk_level        text CHECK (risk_level IS NULL OR risk_level IN ('low', 'medium', 'high')),
@@ -88,6 +96,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_daily_top_picks_date_rank
 
 CREATE INDEX IF NOT EXISTS idx_daily_top_picks_date
   ON daily_top_picks (pick_date DESC);
+
+CREATE INDEX IF NOT EXISTS idx_daily_top_picks_tp_low
+  ON daily_top_picks (take_profit_low);
 
 -- ---------------------------------------------------------------------------
 -- SnapTrade / brokerage integration
