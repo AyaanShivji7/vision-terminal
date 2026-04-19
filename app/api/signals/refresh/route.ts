@@ -1,31 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-
-async function fetchLivePrice(ticker: string) {
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Missing FINNHUB_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch live price for ${ticker}`);
-  }
-
-  const data = await response.json();
-
-  if (!data || typeof data.c !== "number" || data.c <= 0) {
-    throw new Error(`Invalid live price for ${ticker}`);
-  }
-
-  return Number(data.c);
-}
+import { getQuote } from "@/lib/finnhub";
 
 function computeSignalStatus(
   entryPrice: number | null,
@@ -97,7 +73,13 @@ export async function POST() {
 
     for (const row of rows) {
       try {
-        const livePrice = await fetchLivePrice(row.ticker);
+        const quote = await getQuote(row.ticker);
+
+        if (!quote) {
+          continue;
+        }
+
+        const livePrice = quote.currentPrice;
 
         const status = computeSignalStatus(
           row.entry_price === null ? null : Number(row.entry_price),

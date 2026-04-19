@@ -1,3 +1,5 @@
+import { getNews, getQuote } from "@/lib/finnhub";
+
 type MarketHeadline = {
   headline: string;
   source: string;
@@ -32,58 +34,34 @@ const watchSymbols = [
   "UBER",
 ];
 
-async function fetchJson(url: string) {
-  const response = await fetch(url, { cache: "no-store" });
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${url}`);
-  }
-
-  return response.json();
-}
-
 export async function getMarketContext() {
-  const apiKey = process.env.FINNHUB_API_KEY;
+  const newsData = await getNews();
 
-  if (!apiKey) {
-    throw new Error("Missing FINNHUB_API_KEY");
-  }
-
-  const newsUrl = `https://finnhub.io/api/v1/news?category=general&token=${apiKey}`;
-  const newsData = await fetchJson(newsUrl);
-
-  const headlines: MarketHeadline[] = Array.isArray(newsData)
-    ? newsData.slice(0, 8).map((item: any) => ({
-        headline: String(item.headline || ""),
-        source: String(item.source || "Unknown"),
-        datetime: Number(item.datetime || 0),
-      }))
-    : [];
+  const headlines: MarketHeadline[] = newsData.slice(0, 8).map((item) => ({
+    headline: item.headline,
+    source: item.source,
+    datetime: item.datetime,
+  }));
 
   const quoteResults = await Promise.all(
     watchSymbols.map(async (symbol) => {
-      try {
-        const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
-        const data = await fetchJson(quoteUrl);
+      const quote = await getQuote(symbol);
 
-        if (!data || typeof data.c !== "number" || data.c <= 0) {
-          return null;
-        }
-
-        const snapshot: QuoteSnapshot = {
-          symbol,
-          currentPrice: Number(data.c),
-          percentChange: Number(data.dp || 0),
-          high: Number(data.h || 0),
-          low: Number(data.l || 0),
-          open: Number(data.o || 0),
-          previousClose: Number(data.pc || 0),
-        };
-
-        return snapshot;
-      } catch {
+      if (!quote) {
         return null;
       }
+
+      const snapshot: QuoteSnapshot = {
+        symbol: quote.symbol,
+        currentPrice: quote.currentPrice,
+        percentChange: quote.percentChange,
+        high: quote.high,
+        low: quote.low,
+        open: quote.open,
+        previousClose: quote.previousClose,
+      };
+
+      return snapshot;
     })
   );
 

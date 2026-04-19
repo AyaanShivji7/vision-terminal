@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { sql } from "@/lib/db";
 import { getEdmontonDateString } from "@/lib/date";
 import { buildMarketContextPrompt, getMarketContext } from "@/lib/marketContext";
+import { getQuote } from "@/lib/finnhub";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -86,31 +87,6 @@ function normalizePicks(raw: unknown): GeneratedPick[] {
 
     return normalized;
   });
-}
-
-async function fetchLivePrice(ticker: string) {
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Missing FINNHUB_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch live price for ${ticker}`);
-  }
-
-  const data = await response.json();
-
-  if (!data || typeof data.c !== "number" || data.c <= 0) {
-    throw new Error(`Invalid live price for ${ticker}`);
-  }
-
-  return Number(data.c);
 }
 
 function computeSignalStatus(
@@ -250,20 +226,23 @@ export async function saveTodaysGeneratedPicks(picks: GeneratedPick[]) {
     let returnPercent = 0;
 
     try {
-      const livePrice = await fetchLivePrice(pick.ticker);
-      entryPrice = livePrice;
-      currentPrice = livePrice;
+      const quote = await getQuote(pick.ticker);
 
-      const status = computeSignalStatus(
-        entryPrice,
-        currentPrice,
-        pick.takeProfit,
-        pick.stopLoss
-      );
+      if (quote) {
+        entryPrice = quote.currentPrice;
+        currentPrice = quote.currentPrice;
 
-      signalStatus = status.signalStatus;
-      outcome = status.outcome;
-      returnPercent = 0;
+        const status = computeSignalStatus(
+          entryPrice,
+          currentPrice,
+          pick.takeProfit,
+          pick.stopLoss
+        );
+
+        signalStatus = status.signalStatus;
+        outcome = status.outcome;
+        returnPercent = 0;
+      }
     } catch (error) {
       console.error(`Live price fetch failed for ${pick.ticker}:`, error);
     }
