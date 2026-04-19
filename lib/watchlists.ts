@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { getQuote } from "@/lib/finnhub";
 
 export type WatchlistItem = {
   id: string;
@@ -13,37 +14,6 @@ export type Watchlist = {
   name: string;
   items: WatchlistItem[];
 };
-
-async function fetchLiveQuote(ticker: string) {
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Missing FINNHUB_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch quote for ${ticker}`);
-  }
-
-  const data = await response.json();
-
-  if (!data || typeof data.c !== "number" || data.c <= 0) {
-    return {
-      currentPrice: null,
-      percentChange: null,
-    };
-  }
-
-  return {
-    currentPrice: Number(data.c),
-    percentChange: Number(data.dp ?? 0),
-  };
-}
 
 function getSignalLabel(percentChange: number | null) {
   if (percentChange === null) return "watch closely";
@@ -74,25 +44,18 @@ export async function getUserWatchlists(clerkUserId: string): Promise<Watchlist[
 
     const enrichedItems = await Promise.all(
       items.map(async (item: any) => {
-        try {
-          const quote = await fetchLiveQuote(item.ticker);
+        const quote = await getQuote(item.ticker);
 
-          return {
-            id: item.id,
-            ticker: item.ticker,
-            currentPrice: quote.currentPrice,
-            percentChange: quote.percentChange,
-            signalLabel: getSignalLabel(quote.percentChange),
-          };
-        } catch {
-          return {
-            id: item.id,
-            ticker: item.ticker,
-            currentPrice: null,
-            percentChange: null,
-            signalLabel: "watch closely",
-          };
-        }
+        const currentPrice = quote ? quote.currentPrice : null;
+        const percentChange = quote ? quote.percentChange : null;
+
+        return {
+          id: item.id,
+          ticker: item.ticker,
+          currentPrice,
+          percentChange,
+          signalLabel: getSignalLabel(percentChange),
+        };
       })
     );
 

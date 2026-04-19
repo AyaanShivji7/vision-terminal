@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+import { getQuote } from "@/lib/finnhub";
 
 const addHoldingSchema = z.object({
   ticker: z
@@ -19,31 +20,6 @@ const addHoldingSchema = z.object({
     .positive("Buy price must be greater than 0.")
     .finite(),
 });
-
-async function fetchLivePrice(ticker: string) {
-  const apiKey = process.env.FINNHUB_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Missing FINNHUB_API_KEY");
-  }
-
-  const response = await fetch(
-    `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`,
-    { cache: "no-store" }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch live price for ${ticker}`);
-  }
-
-  const data = await response.json();
-
-  if (!data || typeof data.c !== "number" || data.c <= 0) {
-    throw new Error(`Invalid live price for ${ticker}`);
-  }
-
-  return Number(data.c);
-}
 
 export async function GET() {
   try {
@@ -64,17 +40,23 @@ export async function GET() {
       rows.map(async (row: any) => {
         let currentPrice = Number(row.current_price);
 
-        try {
-          const livePrice = await fetchLivePrice(row.ticker);
-          currentPrice = livePrice;
+        const quote = await getQuote(row.ticker);
 
-          await sql`
-            UPDATE portfolio_holdings
-            SET current_price = ${livePrice}
-            WHERE id = ${row.id}
-          `;
-        } catch (error) {
-          console.error(`Price refresh failed for ${row.ticker}:`, error);
+        if (quote) {
+          currentPrice = quote.currentPrice;
+
+          try {
+            await sql`
+              UPDATE portfolio_holdings
+              SET current_price = ${quote.currentPrice}
+              WHERE id = ${row.id}
+            `;
+          } catch (error) {
+            console.error(
+              `Failed to persist refreshed price for ${row.ticker}:`,
+              error
+            );
+          }
         }
 
         return {
@@ -129,7 +111,16 @@ export async function POST(req: Request) {
 
     const { ticker, shares, buyPrice } = parsed.data;
 
-    const currentPrice = await fetchLivePrice(ticker);
+    const quote = await getQuote(ticker);
+
+    if (!quote) {
+      return NextResponse.json(
+        { error: `Could not fetch a live price for ${ticker}.` },
+        { status: 502 }
+      );
+    }
+
+    const currentPrice = quote.currentPrice;
     const id = crypto.randomUUID();
 
     await sql`
