@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+
+const uuidSchema = z.uuid({ error: "Invalid holding id." });
 
 type RouteContext = {
   params: Promise<{
@@ -17,10 +20,18 @@ export async function DELETE(req: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
+    const parsedId = uuidSchema.safeParse(id);
+
+    if (!parsedId.success) {
+      return NextResponse.json(
+        { error: parsedId.error.issues[0]?.message ?? "Invalid holding id." },
+        { status: 400 }
+      );
+    }
 
     await sql`
       DELETE FROM portfolio_holdings
-      WHERE id = ${id}
+      WHERE id = ${parsedId.data}
       AND clerk_user_id = ${userId}
     `;
 

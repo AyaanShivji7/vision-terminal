@@ -22,11 +22,11 @@ export async function GET() {
       connections,
       accounts,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("GET /api/brokerage/local error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to load local brokerage data." },
+      { error: "Failed to load local brokerage data." },
       { status: 500 }
     );
   }

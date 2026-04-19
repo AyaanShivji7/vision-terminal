@@ -1,22 +1,25 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireAdmin } from "@/lib/auth";
 import { generateAndSaveDailyTopPicks } from "@/lib/generateDailyTopPicks";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const authResult = await requireAdmin();
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
     }
 
     const result = await generateAndSaveDailyTopPicks();
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Generate top picks error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to generate daily top picks." },
+      { error: "Failed to generate daily top picks." },
       { status: 500 }
     );
   }

@@ -136,11 +136,11 @@ export async function POST() {
       accountCount: accountRows.length,
       positionCount: totalPositions,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/brokerage/sync-positions error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to sync brokerage positions." },
+      { error: "Failed to sync brokerage positions." },
       { status: 500 }
     );
   }

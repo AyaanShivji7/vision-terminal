@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+
+const itemIdSchema = z.uuid({ error: "Invalid watchlist item id." });
 
 type RouteContext = {
   params: Promise<{
@@ -8,7 +11,7 @@ type RouteContext = {
   }>;
 };
 
-export async function DELETE(req: Request, context: RouteContext) {
+export async function DELETE(_req: Request, context: RouteContext) {
   try {
     const { userId } = await auth();
 
@@ -16,7 +19,20 @@ export async function DELETE(req: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const parsedId = itemIdSchema.safeParse(rawId);
+
+    if (!parsedId.success) {
+      return NextResponse.json(
+        {
+          error:
+            parsedId.error.issues[0]?.message ?? "Invalid watchlist item id.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const id = parsedId.data;
 
     const rows = await sql`
       SELECT wi.id
@@ -40,10 +56,10 @@ export async function DELETE(req: Request, context: RouteContext) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("DELETE /api/watchlist-items/[id] error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to delete watchlist item." },
+      { error: "Failed to delete watchlist item." },
       { status: 500 }
     );
   }

@@ -15,7 +15,8 @@
     "openai": "^6.32.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "snaptrade-typescript-sdk": "^9.0.179"
+    "snaptrade-typescript-sdk": "^9.0.179",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

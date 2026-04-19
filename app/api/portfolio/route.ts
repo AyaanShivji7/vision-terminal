@@ -1,6 +1,24 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+
+const addHoldingSchema = z.object({
+  ticker: z
+    .string()
+    .trim()
+    .min(1, "Ticker is required.")
+    .max(10, "Ticker looks invalid.")
+    .transform((value) => value.toUpperCase()),
+  shares: z
+    .number({ message: "Shares must be a number." })
+    .positive("Shares must be greater than 0.")
+    .finite(),
+  buyPrice: z
+    .number({ message: "Buy price must be a number." })
+    .positive("Buy price must be greater than 0.")
+    .finite(),
+});
 
 async function fetchLivePrice(ticker: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
@@ -88,28 +106,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const ticker = String(body.ticker || "").trim().toUpperCase();
-    const shares = Number(body.shares);
-    const buyPrice = Number(body.buyPrice);
+    let body: unknown;
 
-    if (!ticker) {
-      return NextResponse.json({ error: "Ticker is required." }, { status: 400 });
-    }
-
-    if (!shares || shares <= 0) {
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { error: "Shares must be greater than 0." },
+        { error: "Invalid JSON body." },
         { status: 400 }
       );
     }
 
-    if (!buyPrice || buyPrice <= 0) {
+    const parsed = addHoldingSchema.safeParse(body);
+
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
       return NextResponse.json(
-        { error: "Buy price must be greater than 0." },
+        { error: firstIssue?.message ?? "Invalid holding payload." },
         { status: 400 }
       );
     }
+
+    const { ticker, shares, buyPrice } = parsed.data;
 
     const currentPrice = await fetchLivePrice(ticker);
     const id = crypto.randomUUID();
@@ -142,11 +160,11 @@ export async function POST(req: Request) {
         currentPrice,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/portfolio error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to save holding." },
+      { error: "Failed to save holding." },
       { status: 500 }
     );
   }

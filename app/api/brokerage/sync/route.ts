@@ -138,11 +138,11 @@ export async function POST() {
       connectionCount: connections?.length ?? 0,
       accountCount: accounts?.length ?? 0,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/brokerage/sync error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to sync brokerage accounts." },
+      { error: "Failed to sync brokerage accounts." },
       { status: 500 }
     );
   }
