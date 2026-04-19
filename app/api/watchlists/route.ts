@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
 import { getUserWatchlists } from "@/lib/watchlists";
+
+const createWatchlistSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Watchlist name is required.")
+    .max(60, "Watchlist name is too long."),
+});
 
 export async function GET() {
   try {
@@ -13,10 +22,10 @@ export async function GET() {
 
     const watchlists = await getUserWatchlists(userId);
     return NextResponse.json({ watchlists });
-  } catch (error: any) {
+  } catch (error) {
     console.error("GET /api/watchlists error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to load watchlists." },
+      { error: "Failed to load watchlists." },
       { status: 500 }
     );
   }
@@ -30,16 +39,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const name = String(body.name || "").trim();
+    let body: unknown;
 
-    if (!name) {
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { error: "Watchlist name is required." },
+        { error: "Invalid JSON body." },
         { status: 400 }
       );
     }
 
+    const parsed = createWatchlistSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error:
+            parsed.error.issues[0]?.message ?? "Invalid watchlist payload.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { name } = parsed.data;
     const id = crypto.randomUUID();
 
     await sql`
@@ -54,10 +77,10 @@ export async function POST(req: Request) {
         items: [],
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/watchlists error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to create watchlist." },
+      { error: "Failed to create watchlist." },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
-import { auth } from "@clerk/nextjs/server";
+import { requireAdmin } from "@/lib/auth";
 
 async function fetchLivePrice(ticker: string) {
   const apiKey = process.env.FINNHUB_API_KEY;
@@ -78,10 +78,13 @@ function computeSignalStatus(
 
 export async function POST() {
   try {
-    const { userId } = await auth();
+    const authResult = await requireAdmin();
 
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!authResult.ok) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status }
+      );
     }
 
     const rows = await sql`
@@ -124,11 +127,11 @@ export async function POST() {
       success: true,
       updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/signals/refresh error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to refresh signals." },
+      { error: "Failed to refresh signals." },
       { status: 500 }
     );
   }

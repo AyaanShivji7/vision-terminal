@@ -59,19 +59,25 @@ export async function POST() {
       snaptradeUserSecret
     );
 
+    // SnapTrade SDK's return type is a discriminated union where some
+    // variants expose the redirect URL under different keys. Cast once so
+    // we can read whichever field is populated without fighting the types.
+    const loginDataAny = loginData as unknown as Record<string, unknown>;
     const redirectUri =
-      loginData.redirectURI || loginData.redirectUri || loginData.url;
+      (loginDataAny.redirectURI as string | undefined) ||
+      (loginDataAny.redirectUri as string | undefined) ||
+      (loginDataAny.url as string | undefined);
 
     if (!redirectUri) {
       throw new Error("SnapTrade did not return a redirect URI.");
     }
 
     return NextResponse.json({ redirectUri });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/brokerage/link error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to create brokerage link." },
+      { error: "Failed to create brokerage link." },
       { status: 500 }
     );
   }

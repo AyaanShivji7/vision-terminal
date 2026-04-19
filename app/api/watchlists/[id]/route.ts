@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
+
+const watchlistIdSchema = z.uuid({ error: "Invalid watchlist id." });
+
+const addItemSchema = z.object({
+  ticker: z
+    .string()
+    .trim()
+    .min(1, "Ticker is required.")
+    .max(10, "Ticker looks invalid.")
+    .transform((value) => value.toUpperCase()),
+});
 
 type RouteContext = {
   params: Promise<{
@@ -16,16 +28,43 @@ export async function POST(req: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
-    const body = await req.json();
-    const ticker = String(body.ticker || "").trim().toUpperCase();
+    const { id: rawId } = await context.params;
+    const parsedId = watchlistIdSchema.safeParse(rawId);
 
-    if (!ticker) {
+    if (!parsedId.success) {
       return NextResponse.json(
-        { error: "Ticker is required." },
+        { error: parsedId.error.issues[0]?.message ?? "Invalid watchlist id." },
         { status: 400 }
       );
     }
+
+    const id = parsedId.data;
+
+    let body: unknown;
+
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 }
+      );
+    }
+
+    const parsedBody = addItemSchema.safeParse(body);
+
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        {
+          error:
+            parsedBody.error.issues[0]?.message ??
+            "Invalid watchlist item payload.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { ticker } = parsedBody.data;
 
     const watchlistRows = await sql`
       SELECT id
@@ -56,16 +95,16 @@ export async function POST(req: Request, context: RouteContext) {
         ticker,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("POST /api/watchlists/[id] error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to add watchlist item." },
+      { error: "Failed to add watchlist item." },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(req: Request, context: RouteContext) {
+export async function DELETE(_req: Request, context: RouteContext) {
   try {
     const { userId } = await auth();
 
@@ -73,7 +112,17 @@ export async function DELETE(req: Request, context: RouteContext) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await context.params;
+    const { id: rawId } = await context.params;
+    const parsedId = watchlistIdSchema.safeParse(rawId);
+
+    if (!parsedId.success) {
+      return NextResponse.json(
+        { error: parsedId.error.issues[0]?.message ?? "Invalid watchlist id." },
+        { status: 400 }
+      );
+    }
+
+    const id = parsedId.data;
 
     const watchlistRows = await sql`
       SELECT id
@@ -101,10 +150,10 @@ export async function DELETE(req: Request, context: RouteContext) {
     `;
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("DELETE /api/watchlists/[id] error:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to delete watchlist." },
+      { error: "Failed to delete watchlist." },
       { status: 500 }
     );
   }

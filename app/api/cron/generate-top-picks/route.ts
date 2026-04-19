@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
       ...result,
       triggeredBy: "cron",
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Cron generate top picks error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to run cron generation." },
+      { error: "Failed to run cron generation." },
       { status: 500 }
     );
   }

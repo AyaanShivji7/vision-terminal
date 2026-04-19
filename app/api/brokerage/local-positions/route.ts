@@ -13,11 +13,11 @@ export async function GET() {
     const positions = await getUserBrokeragePositions(userId);
 
     return NextResponse.json({ positions });
-  } catch (error: any) {
+  } catch (error) {
     console.error("GET /api/brokerage/local-positions error:", error);
 
     return NextResponse.json(
-      { error: error?.message || "Failed to load brokerage positions." },
+      { error: "Failed to load brokerage positions." },
       { status: 500 }
     );
   }

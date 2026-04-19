@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { getEdmontonDateString } from "@/lib/date";
 import { seedTopPicks } from "@/data/seedTopPicks";
@@ -52,14 +52,17 @@ async function seedTodaysPicks() {
   };
 }
 
-export async function GET() {
+async function handleSeed() {
+  const authResult = await requireAdmin();
+
+  if (!authResult.ok) {
+    return NextResponse.json(
+      { error: authResult.error },
+      { status: authResult.status }
+    );
+  }
+
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const result = await seedTodaysPicks();
     return NextResponse.json(result);
   } catch (error) {
@@ -71,21 +74,10 @@ export async function GET() {
   }
 }
 
+export async function GET() {
+  return handleSeed();
+}
+
 export async function POST() {
-  try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const result = await seedTodaysPicks();
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error("Seed top picks error:", error);
-    return NextResponse.json(
-      { error: "Failed to seed daily top picks." },
-      { status: 500 }
-    );
-  }
+  return handleSeed();
 }

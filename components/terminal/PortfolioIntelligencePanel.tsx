@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { sql } from "@/lib/db";
 import { analyzePortfolio } from "@/lib/portfolioIntelligence";
 
@@ -10,9 +11,16 @@ function formatCurrency(value: number) {
 }
 
 export default async function PortfolioIntelligencePanel() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return null;
+  }
+
   const rows = await sql`
     SELECT ticker, shares, buy_price, current_price
     FROM portfolio_holdings
+    WHERE clerk_user_id = ${userId}
     ORDER BY created_at DESC
   `;
 
